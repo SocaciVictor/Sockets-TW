@@ -6,5 +6,8 @@ public enum Command { /* implements Serializable is optional, enum is Serializab
     LOGIN,
     REGISTER,
     MESSAGE_ALL,
-    MESSAGE_INDIVIDUAL
+    MESSAGE_INDIVIDUAL,
+    JOIN_ROOM,
+    CREATE_ROOM,
+    MESSAGE_ROOM
 }

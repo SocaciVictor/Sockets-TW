@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.Scanner;
 
 public class Client {
@@ -40,10 +41,21 @@ public class Client {
                             System.out.println("Logged in as: " + currentUser.getNickname());
                         }
 
-                        if(packet.getCommand().equals(Command.MESSAGE_ALL)){
+                        if (packet.getCommand().equals(Command.MESSAGE_ALL)) {
                             String message = "%s : %s ".formatted(packet.getUser().getNickname(), packet.getMessage());
                             System.out.println(message);
                         }
+
+                        if (packet.getCommand().equals(Command.MESSAGE_INDIVIDUAL) && packet.getUserRecipient().getNickname().equals(currentUser.getNickname())) {
+                            String message = "%s : %s ".formatted(packet.getUser().getNickname(), packet.getMessage());
+                            System.out.println(message);
+                        }
+
+                        if (packet.getCommand().equals(Command.MESSAGE_ROOM)) {
+                            String message = "%s : %s ".formatted(packet.getUser().getNickname(), packet.getMessage());
+                            System.out.println(message);
+                        }
+
                         this.notify(); // Notify the waiting thread that a server response was received
                     }
                 }
@@ -85,6 +97,9 @@ public class Client {
                 switch (option) {
                     case "1", "message all" -> messageAll(scanner);
                     case "2", "message individual" -> messageIndividual(scanner);
+                    case "3", "join room" -> joinRoom(scanner);
+                    case "4", "create room" -> createRoom(scanner);
+                    case "5", "message room" -> messageRoom(scanner);
                     case "exit" -> exit();
                     default -> System.out.println("Invalid option. Please try again.");
                 }
@@ -92,6 +107,54 @@ public class Client {
 
             scanner.close();
         }).start();
+    }
+
+    private void messageRoom(Scanner scanner) {
+        System.out.print("Enter room name: ");
+        String roomName = scanner.nextLine();
+        System.out.print("Enter message to send to room: ");
+        String message = scanner.nextLine();
+
+        try {
+            out.writeObject(Packet.builder()
+                    .roomName(roomName)
+                    .message(message)
+                    .user(currentUser)
+                    .command(Command.MESSAGE_ROOM)
+                    .build());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void createRoom(Scanner scanner) {
+        System.out.print("Enter new room name: ");
+        String roomName = scanner.nextLine();
+
+        try {
+            out.writeObject(Packet.builder()
+                    .roomName(roomName)
+                    .user(currentUser)
+                    .command(Command.CREATE_ROOM)
+                    .build());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void joinRoom(Scanner scanner) {
+        System.out.print("Enter room name to join: ");
+        String roomName = scanner.nextLine();
+
+        try {
+            out.writeObject(Packet.builder()
+                    .roomName(roomName)
+                    .user(currentUser)
+                    .command(Command.JOIN_ROOM)
+                    .build());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void showAuthMenu() {
@@ -108,6 +171,9 @@ public class Client {
                 Messaging Options:
                 1. Message All (Public Chat)
                 2. Message Individual
+                3. Join Room
+                4. Create Room
+                5. Message Room
                 Type 'exit' to quit.
                 Choose: """);
     }
@@ -131,7 +197,6 @@ public class Client {
         }
     }
 
-    /* TODO: Implement on the server side */
     private void register(Scanner scanner) {
         System.out.print("Enter new username: ");
         String username = scanner.nextLine();
@@ -167,17 +232,21 @@ public class Client {
         }
     }
 
+    // Correct the recipient handling by sending both sender and recipient in the packet
     private void messageIndividual(Scanner scanner) {
         System.out.print("Enter recipient username: ");
         String recipient = scanner.nextLine();
         System.out.print("Enter message: ");
         String message = scanner.nextLine();
 
+        User recipientUser = User.builder().nickname(recipient).build();
+
         try {
             out.writeObject(Packet
                     .builder()
                     .message(message)
-                    .user(currentUser)  // Use the retained User (principal)
+                    .user(currentUser)
+                    .userRecipient(recipientUser)
                     .command(Command.MESSAGE_INDIVIDUAL)
                     .build());
         } catch (IOException e) {
